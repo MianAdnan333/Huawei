@@ -7,5 +7,21 @@
 			"path": "../../Downloads/dataset/dataset"
 		}
 	],
-	"settings": {}
+	"settings": {
+		"python.defaultInterpreterPath": "${workspaceFolder:Huawei}/.venv/Scripts/python.exe"
+	},
+	"launch": {
+		"version": "0.2.0",
+		"configurations": [
+			{
+				"name": "Run Streamlit chat app",
+				"type": "debugpy",
+				"request": "launch",
+				"module": "streamlit",
+				"args": ["run", "project/custom_streamlit_app.py"],
+				"cwd": "${workspaceFolder:Huawei}",
+				"justMyCode": true
+			}
+		]
+	}
 }
