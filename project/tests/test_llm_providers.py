@@ -36,6 +36,13 @@ class ChatModelsTest(unittest.TestCase):
     def test_default_is_added_when_list_is_empty(self):
         self.assertEqual(chat_models([], "deepseek-chat"), ["deepseek-chat"])
 
+    def test_missing_default_is_not_offered(self):
+        self.assertEqual(chat_models(["gemini-3-flash"], "gemini-2.5-flash"), ["gemini-3-flash"])
+
+    def test_hidden_markers_are_dropped(self):
+        ids = ["models/gemma-4-26b-a4b-it", "models/gemini-2.5-flash"]
+        self.assertEqual(chat_models(ids, hidden_markers=("gemma",)), ["gemini-2.5-flash"])
+
 
 class ConnectTest(unittest.TestCase):
     def test_empty_key_is_rejected(self):
@@ -59,7 +66,10 @@ class ConnectTest(unittest.TestCase):
             connection = connect(AUTO, "  gsk_test  ")
         self.assertEqual(connection.provider, "groq")
         self.assertEqual(connection.api_key, "gsk_test")
-        remote.assert_called_once_with("gsk_test", PROVIDERS["groq"].base_url, fallback_model=PROVIDERS["groq"].default_model)
+        remote.assert_called_once_with(
+            "gsk_test", PROVIDERS["groq"].base_url,
+            fallback_model=PROVIDERS["groq"].default_model, hidden_markers=(),
+        )
 
     def test_custom_uses_given_url(self):
         with patch.object(llm_providers, "_remote_models", return_value=["m"]):

@@ -27,12 +27,16 @@ class Provider:
     default_model: str
     key_prefix: str | None = None
     key_check_url: str | None = None  # for providers whose model list is public
+    hidden_model_markers: tuple[str, ...] = ()  # listed models that fail in chat
 
 
 PROVIDERS = {
     "openai": Provider("OpenAI", "https://api.openai.com/v1", "gpt-4o-mini", "sk-"),
     "anthropic": Provider("Anthropic (Claude)", "https://api.anthropic.com/v1/", "claude-haiku-5-5", "sk-ant-"),
-    "gemini": Provider("Google Gemini", "https://generativelanguage.googleapis.com/v1beta/openai/", "gemini-2.5-flash", "AIza"),
+    "gemini": Provider(
+        "Google Gemini", "https://generativelanguage.googleapis.com/v1beta/openai/", "gemini-2.5-flash", "AIza",
+        hidden_model_markers=("gemma",),
+    ),
     "groq": Provider("Groq", "https://api.groq.com/openai/v1", "llama-3.3-70b-versatile", "gsk_"),
     "openrouter": Provider(
         "OpenRouter", "https://openrouter.ai/api/v1", "openai/gpt-4o-mini", "sk-or-",
@@ -96,7 +100,9 @@ def connect(provider: str, api_key: str | None = None, base_url: str | None = No
         base_url = preset.base_url
         if preset.key_check_url:
             _check_key(api_key, preset.key_check_url)
-        models = _remote_models(api_key, base_url, fallback_model=preset.default_model)
+        models = _remote_models(
+            api_key, base_url, fallback_model=preset.default_model, hidden_markers=preset.hidden_model_markers
+        )
     else:
         raise ConnectionFailed(f"Unknown provider '{provider}'.")
 
@@ -118,16 +124,23 @@ def provider_label(connection: Connection) -> str:
     return PROVIDER_LABELS.get(connection.provider, connection.provider)
 
 
-def chat_models(model_ids: list[str], default_model: str | None = None) -> list[str]:
-    """Drop non-chat models and put the default model first."""
+def chat_models(
+    model_ids: list[str], default_model: str | None = None, hidden_markers: tuple[str, ...] = ()
+) -> list[str]:
+    """Drop non-chat models and put the default model first.
+
+    The default is only added to an empty list, so a retired default is never offered.
+    """
+    markers = NON_CHAT_MARKERS + hidden_markers
     models = sorted(
         model_id.removeprefix("models/") for model_id in model_ids
-        if not any(marker in model_id.lower() for marker in NON_CHAT_MARKERS)
+        if not any(marker in model_id.lower() for marker in markers)
     )
-    if default_model:
-        if default_model in models:
-            models.remove(default_model)
+    if default_model in models:
+        models.remove(default_model)
         models.insert(0, default_model)
+    elif not models and default_model:
+        models = [default_model]
     return models
 
 
@@ -144,7 +157,9 @@ def _check_key(api_key: str, key_check_url: str):
         raise ConnectionFailed(KEY_REJECTED)
 
 
-def _remote_models(api_key: str, base_url: str, fallback_model: str | None) -> list[str]:
+def _remote_models(
+    api_key: str, base_url: str, fallback_model: str | None, hidden_markers: tuple[str, ...] = ()
+) -> list[str]:
     client = openai.OpenAI(api_key=api_key, base_url=base_url, timeout=15)
     try:
         model_ids = [model.id for model in client.models.list()]
@@ -160,7 +175,7 @@ def _remote_models(api_key: str, base_url: str, fallback_model: str | None) -> l
     except openai.APIConnectionError as error:
         raise ConnectionFailed(f"Could not reach {base_url}. Check the URL and your internet.") from error
 
-    models = chat_models(model_ids, fallback_model)
+    models = chat_models(model_ids, fallback_model, hidden_markers)
     if not models:
         raise ConnectionFailed("No chat models were found for this key.")
     return models

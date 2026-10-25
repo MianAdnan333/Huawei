@@ -16,3 +16,4 @@ if connection is None:
     render_login()
 else:
     render_chat(connection)
+                                                    

@@ -90,7 +90,7 @@ def _answer(prompt: str, history: list, connection: Connection, settings: ChatSe
             reply = st.write_stream(chunk.content for chunk in chat.stream(messages))
         except Exception as error:
             history.pop()
-            st.error(f"Request failed: {error}")
+            st.error(f"Request failed: {error}\n\nTry another model from the sidebar.")
             return
 
     history.append(AIMessage(content=reply))
