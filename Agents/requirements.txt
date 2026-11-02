@@ -1,0 +1,6 @@
+streamlit>=1.50
+google-genai
+openai-agents[voice]
+openai
+numpy
+python-dotenv
